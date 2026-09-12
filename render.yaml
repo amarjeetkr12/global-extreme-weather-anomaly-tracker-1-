@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: global-extreme-weather-anomaly-tracker
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SENDGRID_API_KEY
+        sync: false
+      - key: NOTIFICATION_EMAIL_FROM
+        sync: false
+      - key: ALERT_EMAIL_TO
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_FROM_NUMBER
+        sync: false
+      - key: ALERT_SMS_TO
+        sync: false

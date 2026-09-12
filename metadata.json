@@ -1,0 +1,6 @@
+{
+  "name": "Global Extreme Weather Anomaly Tracker",
+  "description": "Worldwide spatio-temporal tracking of extreme weather anomalies with multi-spectral satellite Earth observation, medium-range numerical forecasts, and multi-source risk fusion.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

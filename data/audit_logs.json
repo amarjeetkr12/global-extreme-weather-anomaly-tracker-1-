@@ -1,0 +1,40 @@
+[
+  {
+    "id": "AUDIT-1789182599976-9625",
+    "timestamp": "2026-09-12T03:09:59.976Z",
+    "dataset_id": "DS-INDIA-SAMPLE-02",
+    "dataset_name": "Extreme Weather Anomaly Sample Dataset (Dataset B - India)",
+    "record_id": "REC-DS-INDIA-SAMPLE-02-1789182596636",
+    "operation": "DELETE_RECORD",
+    "actor": "Meteorologist / Operator",
+    "details": "Deleted record at \"Bikaner Test Station\" (Date: 2026-09-15, Day: 3)."
+  },
+  {
+    "id": "AUDIT-1789182596636-2247",
+    "timestamp": "2026-09-12T03:09:56.636Z",
+    "dataset_id": "DS-INDIA-SAMPLE-02",
+    "dataset_name": "Extreme Weather Anomaly Sample Dataset (Dataset B - India)",
+    "record_id": "REC-DS-INDIA-SAMPLE-02-1789182596636",
+    "operation": "CREATE_RECORD",
+    "actor": "Meteorologist / Operator",
+    "details": "Added new observation at \"Bikaner Test Station\" (Date: 2026-09-15, Temp: 44.5°C, Rain: 0mm)."
+  },
+  {
+    "id": "AUDIT-1789182535058-5790",
+    "timestamp": "2026-09-12T03:08:55.058Z",
+    "dataset_id": "DS-INDIA-SAMPLE-02",
+    "dataset_name": "Extreme Weather Anomaly Sample Dataset (Dataset B - India)",
+    "operation": "UPLOAD_DATASET",
+    "actor": "System Initializer",
+    "details": "Initialized default editable dataset with 6 records across 6 India locations."
+  },
+  {
+    "id": "AUDIT-1789182535058-3026",
+    "timestamp": "2026-09-12T03:08:55.058Z",
+    "dataset_id": "DS-GLOBAL-PROTO-01",
+    "dataset_name": "Global Extreme Weather Anomaly Prototype (Dataset A)",
+    "operation": "UPLOAD_DATASET",
+    "actor": "System Initializer",
+    "details": "Initialized default editable dataset with 14 records across 13 global locations."
+  }
+]

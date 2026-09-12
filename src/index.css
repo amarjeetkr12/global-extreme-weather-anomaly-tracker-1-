@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Ensure Leaflet container stays clean and responsive */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  background-color: #f1f5f9;
+  outline: none;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  font-family: inherit;
+}
