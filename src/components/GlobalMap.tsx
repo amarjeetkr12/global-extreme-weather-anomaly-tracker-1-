@@ -93,7 +93,7 @@ export const GlobalMap: React.FC<GlobalMapProps> = ({
   const [streamLayerMode, setStreamLayerMode] = useState<'ALL' | 'HEAT' | 'RAIN' | 'WIND' | 'CYCLONE'>('ALL');
 
   // Upcoming Prediction Timeline Slider (Day 0 to Day 7)
-   const [timeMode, setTimeMode] = useState<'PAST' | 'PRESENT' | 'FUTURE'>('PRESENT');
+  const [timeMode, setTimeMode] = useState<'PAST' | 'PRESENT' | 'FUTURE'>('PRESENT');
   const [forecastLeadDay, setForecastLeadDay] = useState<number>(0);
   const [isTimelinePlaying, setIsTimelinePlaying] = useState<boolean>(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1); // 1x or 2x
@@ -336,12 +336,22 @@ export const GlobalMap: React.FC<GlobalMapProps> = ({
     return () => clearInterval(interval);
   }, [isTimelinePlaying, playbackSpeed]);
 
-  // Filter anomalies based on timeline lead-day and hazard stream mode
+  // Keep the map honest about what the available feeds can represent: historical
+  // event records, live observations, or forecast lead times.
   const filteredAnomalies = React.useMemo(() => {
     return anomalies.filter((a) => {
-      // If scrubbing timeline:
-      // When forecastLeadDay === 0: show current/all lead 0-1 anomalies; or exact match
-      if (forecastLeadDay > 0 && a.forecast_lead_day !== forecastLeadDay) {
+      if (timeMode === 'PAST' && new Date(a.timestamp).getTime() > Date.now()) {
+        return false;
+      }
+      if (timeMode === 'PRESENT' && a.forecast_lead_day > 1) {
+        return false;
+      }
+      if (timeMode === 'FUTURE' && a.forecast_lead_day < 1) {
+        return false;
+      }
+
+      // When scrubbing the future timeline, show the selected forecast lead day.
+      if (timeMode === 'FUTURE' && forecastLeadDay > 0 && a.forecast_lead_day !== forecastLeadDay) {
         return false;
       }
 
@@ -353,7 +363,7 @@ export const GlobalMap: React.FC<GlobalMapProps> = ({
 
       return true;
     });
-  }, [anomalies, forecastLeadDay, streamLayerMode]);
+  }, [anomalies, forecastLeadDay, streamLayerMode, timeMode]);
 
   // Render Grid Cells (India High-Res Nodes vs Global Cells)
   useEffect(() => {
@@ -1007,20 +1017,28 @@ export const GlobalMap: React.FC<GlobalMapProps> = ({
         </div>
       </div>
 
-      {/* 4. UPCOMING PREDICTION TIMELINE STREAM PLAYER (Day 0 -> Day 7) */}
+      {/* 4. PAST / PRESENT / FUTURE TIMELINE STREAM PLAYER */}
       <div className="z-500 bg-slate-900/95 backdrop-blur-md px-4 py-2.5 border-t border-slate-800 text-white flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
         {/* Playback Controls & Status */}
         <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setIsTimelinePlaying(!isTimelinePlaying)}
+              onClick={() => {
+                if (timeMode !== 'FUTURE') {
+                  setTimeMode('FUTURE');
+                  setForecastLeadDay(1);
+                  setIsTimelinePlaying(true);
+                  return;
+                }
+                setIsTimelinePlaying(!isTimelinePlaying);
+              }}
               className={`p-2 rounded-xl font-bold flex items-center justify-center transition-all cursor-pointer ${
                 isTimelinePlaying
                   ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md'
                   : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md'
               }`}
-              title={isTimelinePlaying ? 'Pause Prediction Stream' : 'Play Upcoming Weather Prediction Stream'}
+              title={isTimelinePlaying ? 'Pause Forecast Stream' : 'Play Future Forecast Stream'}
             >
               {isTimelinePlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
             </button>
@@ -1029,6 +1047,7 @@ export const GlobalMap: React.FC<GlobalMapProps> = ({
               type="button"
               onClick={() => {
                 setIsTimelinePlaying(false);
+                setTimeMode('PRESENT');
                 setForecastLeadDay(0);
               }}
               className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition-all cursor-pointer"
@@ -1041,22 +1060,54 @@ export const GlobalMap: React.FC<GlobalMapProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-black text-white">
-                {forecastLeadDay === 0 ? 'Live Stream: Current (Day 0)' : `Upcoming Forecast Stream: Day +${forecastLeadDay} (${forecastLeadDay * 24}h)`}
+                {timeMode === 'PAST'
+                  ? 'Past: Recorded Event History'
+                  : timeMode === 'PRESENT'
+                    ? 'Present: Live Stream (Now)'
+                    : `Future: Forecast Stream Day +${forecastLeadDay || 1} (${(forecastLeadDay || 1) * 24}h)`}
               </span>
               <span className="px-2 py-0.5 rounded-md bg-blue-950 text-blue-300 border border-blue-800 text-[10px] font-bold">
-                {filteredAnomalies.length} Predicted Anomalies
+                {filteredAnomalies.length} {timeMode === 'PAST' ? 'Recorded' : timeMode === 'PRESENT' ? 'Live' : 'Forecast'} Anomalies
               </span>
             </div>
             <p className="text-[10px] text-slate-400 hidden sm:block">
-              {forecastLeadDay === 0
-                ? 'Real-time ground observations and active hazard telemetry'
-                : `Simulating medium-range numerical weather prediction trajectory for Day +${forecastLeadDay}`}
+              {timeMode === 'PAST'
+                ? 'Previously ingested anomaly records with timestamps up to now'
+                : timeMode === 'PRESENT'
+                  ? 'Current Open-Meteo observations, active hazards and live telemetry'
+                  : `Open-Meteo medium-range numerical forecast trajectory for Day +${forecastLeadDay || 1}`}
             </p>
           </div>
         </div>
 
-        {/* Days Track Selector (0 to 7) */}
-        <div className="flex items-center gap-1.5 w-full sm:w-auto justify-center">
+        {/* Time mode and forecast day selector */}
+        <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto justify-center">
+          {([
+            { id: 'PAST', label: 'Past' },
+            { id: 'PRESENT', label: 'Present' },
+            { id: 'FUTURE', label: 'Future' },
+          ] as const).map((mode) => (
+            <button
+              key={mode.id}
+              type="button"
+              onClick={() => {
+                setIsTimelinePlaying(false);
+                setTimeMode(mode.id);
+                if (mode.id === 'PRESENT') setForecastLeadDay(0);
+                if (mode.id === 'FUTURE' && forecastLeadDay === 0) setForecastLeadDay(1);
+              }}
+              className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                timeMode === mode.id
+                  ? 'bg-emerald-600 text-white ring-2 ring-emerald-400 shadow-md'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+              }`}
+            >
+              {mode.label}
+            </button>
+          ))}
+
+          <span className="w-px h-5 bg-slate-700 mx-1" />
+
           {[0, 1, 2, 3, 4, 5, 6, 7].map((day) => {
             const isSelected = forecastLeadDay === day;
             return (
@@ -1065,6 +1116,7 @@ export const GlobalMap: React.FC<GlobalMapProps> = ({
                 type="button"
                 onClick={() => {
                   setIsTimelinePlaying(false);
+                  setTimeMode(day === 0 ? 'PRESENT' : 'FUTURE');
                   setForecastLeadDay(day);
                 }}
                 className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
