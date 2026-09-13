@@ -93,6 +93,7 @@ export const GlobalMap: React.FC<GlobalMapProps> = ({
   const [streamLayerMode, setStreamLayerMode] = useState<'ALL' | 'HEAT' | 'RAIN' | 'WIND' | 'CYCLONE'>('ALL');
 
   // Upcoming Prediction Timeline Slider (Day 0 to Day 7)
+   const [timeMode, setTimeMode] = useState<'PAST' | 'PRESENT' | 'FUTURE'>('PRESENT');
   const [forecastLeadDay, setForecastLeadDay] = useState<number>(0);
   const [isTimelinePlaying, setIsTimelinePlaying] = useState<boolean>(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1); // 1x or 2x
