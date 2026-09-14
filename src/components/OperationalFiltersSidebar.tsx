@@ -79,7 +79,7 @@ export const OperationalFiltersSidebar: React.FC<OperationalFiltersSidebarProps>
             type="text"
             value={filters.searchQuery}
             onChange={(e) => updateField('searchQuery', e.target.value)}
-            placeholder="e.g., New Delhi, Jaipur, Tokyo..."
+            placeholder="Search city, state, or region..."
             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
           />
           {filters.searchQuery && (
@@ -92,6 +92,7 @@ export const OperationalFiltersSidebar: React.FC<OperationalFiltersSidebarProps>
             </button>
           )}
         </div>
+        <p className="text-[10px] text-slate-400">Map will focus on the location and show hazards within 500 km.</p>
       </div>
 
       {/* 2. Forecast Lead Horizon */}

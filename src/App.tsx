@@ -66,6 +66,7 @@ export default function App() {
   const [inspectedEvent, setInspectedEvent] = useState<TrackedWeatherEvent | null>(null);
 
   const [activeRegionFilter, setActiveRegionFilter] = useState<'ALL' | 'GLOBAL' | 'INDIA'>('ALL');
+  const [focusLocation, setFocusLocation] = useState<{ lat: number; lon: number; label: string } | null>(null);
   const [isWeatherLoading, setIsWeatherLoading] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [apiConnected, setApiConnected] = useState<boolean>(false);
@@ -289,6 +290,44 @@ export default function App() {
     }
   }, [filters.searchQuery, cells, selectedCell]);
 
+  useEffect(() => {
+    const query = filters.searchQuery.trim();
+    if (query.length < 3) {
+      setFocusLocation(null);
+      return;
+    }
+
+    const matchedCell = cells.find((cell) =>
+      cell.node_name?.toLowerCase().includes(query.toLowerCase()) || cell.cell_id.toLowerCase() === query.toLowerCase()
+    );
+    if (matchedCell) {
+      setFocusLocation({ lat: matchedCell.lat, lon: matchedCell.lon, label: matchedCell.node_name || matchedCell.cell_id });
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`, {
+          signal: controller.signal,
+          headers: { Accept: 'application/json' },
+        });
+        const results = (await response.json()) as Array<{ lat: string; lon: string; display_name: string }>;
+        const result = results[0];
+        if (result) {
+          setFocusLocation({ lat: Number(result.lat), lon: Number(result.lon), label: result.display_name });
+        }
+      } catch {
+        // Keep the last map view when geocoding is unavailable.
+      }
+    }, 500);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [filters.searchQuery, cells]);
+
   // Manual Pipeline Run
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
@@ -320,12 +359,16 @@ export default function App() {
 
   // Synchronized Filter Calculation for KPI and Counter Badges
   const filteredGridCells = useMemo(() => {
+    const query = filters.searchQuery.trim().toLowerCase();
+    const hasCellMatch = query !== '' && cells.some(
+      (c) => c.node_name?.toLowerCase().includes(query) || c.cell_id.toLowerCase().includes(query)
+    );
+
     return cells.filter((c) => {
       // Search
-      if (filters.searchQuery.trim() !== '') {
-        const q = filters.searchQuery.toLowerCase();
-        const matchName = c.node_name?.toLowerCase().includes(q);
-        const matchId = c.cell_id.toLowerCase().includes(q);
+      if (hasCellMatch) {
+        const matchName = c.node_name?.toLowerCase().includes(query);
+        const matchId = c.cell_id.toLowerCase().includes(query);
         if (!matchName && !matchId) return false;
       }
 
@@ -498,6 +541,7 @@ export default function App() {
                   isRefreshing={isRefreshing}
                   weather={weather}
                   realtimeStreamActive={realtimeStreamActive}
+                  focusLocation={focusLocation}
                 />
 
                 {/* Selected Cell 7-Day Weather & Medium-Range Forecast */}

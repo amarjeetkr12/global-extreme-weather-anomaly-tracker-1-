@@ -49,6 +49,7 @@ interface GlobalMapProps {
   isRefreshing?: boolean;
   weather?: WeatherData | null;
   realtimeStreamActive?: boolean;
+  focusLocation?: { lat: number; lon: number; label: string } | null;
 }
 
 export const GlobalMap: React.FC<GlobalMapProps> = ({
@@ -65,6 +66,7 @@ export const GlobalMap: React.FC<GlobalMapProps> = ({
   isRefreshing = false,
   weather,
   realtimeStreamActive = false,
+  focusLocation = null,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -114,6 +116,17 @@ export const GlobalMap: React.FC<GlobalMapProps> = ({
   // Sub-region quick focus
   const [indiaSubRegion, setIndiaSubRegion] = useState<'FULL' | 'NORTH' | 'WEST' | 'SOUTH' | 'EAST'>('FULL');
   const [isDrawerDismissed, setIsDrawerDismissed] = useState<boolean>(false);
+  const nearbyRadiusKm = 500;
+
+  const distanceKm = (lat: number, lon: number, target: { lat: number; lon: number }) => {
+    const toRadians = (value: number) => (value * Math.PI) / 180;
+    const dLat = toRadians(lat - target.lat);
+    const dLon = toRadians(lon - target.lon);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRadians(target.lat)) * Math.cos(toRadians(lat)) * Math.sin(dLon / 2) ** 2;
+    return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  const isNearby = (lat: number, lon: number) => !focusLocation || distanceKm(lat, lon, focusLocation) <= nearbyRadiusKm;
 
   // Reset drawer dismissal when selected cell changes
   useEffect(() => {
@@ -128,8 +141,19 @@ export const GlobalMap: React.FC<GlobalMapProps> = ({
       center: [20, 0],
       zoom: 2,
       minZoom: 1,
-      maxZoom: 13,
+      maxZoom: 16,
       zoomControl: false,
+      scrollWheelZoom: true,
+      doubleClickZoom: true,
+      touchZoom: true,
+      boxZoom: true,
+      keyboard: true,
+      zoomSnap: 0.5,
+      zoomDelta: 0.5,
+      wheelDebounceTime: 30,
+      wheelPxPerZoomLevel: 90,
+      zoomAnimation: true,
+      fadeAnimation: true,
       worldCopyJump: true,
       maxBounds: [
         [-90, -180],
@@ -205,7 +229,7 @@ export const GlobalMap: React.FC<GlobalMapProps> = ({
       void refreshRadarLayer();
     }, 10 * 60 * 1000);
 
-    L.control.zoom({ position: 'topright' }).addTo(map);
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
 
     gridLayerRef.current = L.layerGroup().addTo(map);
     anomalyLayerRef.current = L.layerGroup().addTo(map);
@@ -252,6 +276,11 @@ export const GlobalMap: React.FC<GlobalMapProps> = ({
       map.flyTo([20, 0], 2, { duration: 1.2 });
     }
   }, [activeRegionFilter]);
+
+  useEffect(() => {
+    if (!focusLocation || !mapInstanceRef.current) return;
+    mapInstanceRef.current.flyTo([focusLocation.lat, focusLocation.lon], 6, { duration: 1.2 });
+  }, [focusLocation]);
 
   // Pan to India sub-regions
   const flyToIndiaSubRegion = (region: 'FULL' | 'NORTH' | 'WEST' | 'SOUTH' | 'EAST') => {
@@ -373,7 +402,7 @@ export const GlobalMap: React.FC<GlobalMapProps> = ({
 
     if (!showGrid) return;
 
-    cells.forEach((cell) => {
+    cells.filter((cell) => isNearby(cell.lat, cell.lon)).forEach((cell) => {
       const isIndia = cell.region === 'INDIA';
 
       if (isIndia) {
@@ -432,7 +461,7 @@ export const GlobalMap: React.FC<GlobalMapProps> = ({
         marker.addTo(layer);
       }
     });
-  }, [cells, showGrid, onSelectCell]);
+  }, [cells, showGrid, onSelectCell, focusLocation]);
 
   // Render Extreme Anomalies Layer (Responsive to Timeline & Stream Mode)
   useEffect(() => {
@@ -442,7 +471,7 @@ export const GlobalMap: React.FC<GlobalMapProps> = ({
 
     if (!showAnomalies) return;
 
-    filteredAnomalies.forEach((anom) => {
+    filteredAnomalies.filter((anom) => isNearby(anom.lat, anom.lon)).forEach((anom) => {
       const color =
         anom.hazard_type === 'HEATWAVE' ? '#ef4444' :
         anom.hazard_type === 'COLDWAVE' ? '#06b6d4' :
@@ -493,7 +522,7 @@ export const GlobalMap: React.FC<GlobalMapProps> = ({
         }).addTo(layer);
       }
     });
-  }, [filteredAnomalies, showAnomalies]);
+  }, [filteredAnomalies, showAnomalies, focusLocation]);
 
   // Render Cyclones Layer
   useEffect(() => {
@@ -503,7 +532,7 @@ export const GlobalMap: React.FC<GlobalMapProps> = ({
 
     if (!showCyclones) return;
 
-    cyclones.forEach((cyc) => {
+    cyclones.filter((cyc) => isNearby(cyc.current_lat, cyc.current_lon)).forEach((cyc) => {
       const marker = L.circleMarker([cyc.current_lat, cyc.current_lon], {
         radius: 12,
         color: '#b91c1c',
@@ -537,7 +566,7 @@ export const GlobalMap: React.FC<GlobalMapProps> = ({
         L.polyline(fcstCoords, { color: '#b91c1c', weight: 2.5, dashArray: '6, 6', opacity: 0.9 }).addTo(layer);
       }
     });
-  }, [cyclones, showCyclones]);
+  }, [cyclones, showCyclones, focusLocation]);
 
   // Render Tsunamis Layer
   useEffect(() => {
@@ -548,6 +577,7 @@ export const GlobalMap: React.FC<GlobalMapProps> = ({
     if (!showTsunamis) return;
 
     tsunamis.forEach((tsu) => {
+      if (!isNearby(tsu.event_lat, tsu.event_lon)) return;
       const marker = L.circleMarker([tsu.event_lat, tsu.event_lon], {
         radius: 9,
         color: '#0284c7',
@@ -565,8 +595,18 @@ export const GlobalMap: React.FC<GlobalMapProps> = ({
         </div>`
       );
       marker.addTo(layer);
+
+      const quake = L.circleMarker([tsu.source_earthquake.lat, tsu.source_earthquake.lon], {
+        radius: Math.max(6, Math.min(14, tsu.source_earthquake.magnitude * 2)),
+        color: '#7c2d12',
+        weight: 2,
+        fillColor: '#fb923c',
+        fillOpacity: 0.9,
+      });
+      quake.bindTooltip(`<strong>Earthquake M${tsu.source_earthquake.magnitude}</strong><br/>${tsu.source_earthquake.place}<br/>Depth: ${tsu.source_earthquake.depth_km} km`);
+      quake.addTo(layer);
     });
-  }, [tsunamis, showTsunamis]);
+  }, [tsunamis, showTsunamis, focusLocation]);
 
   // Render Spatio-Temporal Events
   useEffect(() => {
@@ -576,7 +616,7 @@ export const GlobalMap: React.FC<GlobalMapProps> = ({
 
     if (!showEvents) return;
 
-    events.forEach((evt) => {
+    events.filter((evt) => isNearby(evt.center_lat, evt.center_lon)).forEach((evt) => {
       const circle = L.circle([evt.center_lat, evt.center_lon], {
         radius: Math.max(160000, evt.affected_cells.length * 85000),
         color: '#7c3aed',
@@ -595,7 +635,7 @@ export const GlobalMap: React.FC<GlobalMapProps> = ({
       );
       circle.addTo(layer);
     });
-  }, [events, showEvents]);
+  }, [events, showEvents, focusLocation]);
 
   // Selected cell highlight & pan
   useEffect(() => {
